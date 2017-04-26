@@ -2,10 +2,11 @@ from flask import Flask
 from flask import request
 from sklearn.neural_network import MLPClassifier
 from pymongo import MongoClient
+import traceback
 
 import os
 import pickle
-
+import json
 
 app = Flask(__name__)
 
@@ -28,43 +29,91 @@ def start_game_session():
 @app.route('/make_decision')
 # Takes a network_id and a set of input. Queries the given network for a decision, logs the decision for later annotation, and returns the decision
 def make_decision():
-    
-    
+    request.args['network_id']
     db = get_rutsubo_db()
-
     return str(request.args)
 
 
 @app.route('/end_game_session')
 # Takes a session_id and a result. Annotes all decisions made during the session with those results. Maybe use the data to train the network
 def end_game_session():
-    return 'It worked! Finally!!'
+    network_id = request.args['network_id']
+    db = get_rutsubo_db()
+    network = db.networks.find_one({'network_id': network_id})
+    return str(network)
 
 
 @app.route('/create_network')
 # Takes a network_id and a set of network parameters and creates a network. Does not overwrite existing networks
 def create_network():
-    
-    # TODO: Add parameters
-    # TODO: Add idempotency (i.e make it create or get)
-    
-    clf = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
-    network = {"network": pickle.dumps(clf),
-               "tag": "basic_tag"}
+    network_id = request.args['network_id']
+    network = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(2, 2), random_state=1)
     db = get_rutsubo_db()
-    network_id = db.networks.insert_one(network).inserted_id
-    return str(network_id)
+    was_created = store_network(db, network_id, network, false)
+    return str(was_created)
 
 
-@app.route('/train_network')
-# Takes an existing set of training data and a network_id, bootstraps the network
-# ONE DAY: Make it asynchronous
+@app.route('/load_training_data', methods=['POST'])
+# Takes an array of annotated training data and stores it for training
+def load_training_data():
+    try:
+        raw_decisions = request.form['data']
+        decisions = json.loads(raw_decisions)
+        for decision in decisions:
+            to_insert = {'input': decision['input'],
+                         'output': decision['output'],
+                         'agent': decision['agent'],
+                         'annotation': decision['annotation']}
+            db = get_rutsubo_db()
+            db.decisions.insert_one(to_insert)
+    except Exception as e:
+        app.logger.error(traceback.print_exc())
+    return "Success"
+
+
+@app.route('/train_network', methods=['POST'])
 def train_network():
+    try:
+        ret = "wow"
+        network_id = request.form['network_id']
+        
+        db = get_rutsubo_db()
+        network = load_network(db, network_id)
+        if network == None:
+            return "No network with network_id " + str(network_id)
+        
+        raw_decisions = request.form['data']
+        decisions = json.loads(raw_decisions)
+        inputs = [d['input'] for d in decisions]
+        outputs = [d['output'] for d in decisions]
+        ret = network.fit(inputs, outputs)
     
-    
-    
-    return "train_network"
+        store_network(db, network_id, network)
+    except Exception as e:
+        app.logger.error(traceback.print_exc())
+        ret = e
+    return "success"
 
+
+# Returns an MLPClassifier
+def load_network(db, network_id):
+    raw_network = db.networks.find_one({'network_id': network_id})
+    if raw_network == None:
+        return None
+    return pickle.loads(raw_network['network_pickle'])
+
+
+# Returns true if the network was inserted and false if it was updated
+def store_network(db, network_id, network, overwrite=True):
+    if db.networks.find_one({'network_id': network_id}) == None:
+        db.networks.update_one({"network_id": network_id},
+            {"$set": {"network_pickle": pickle.dumps(network)}})
+        return True
+    else:
+        if overwrite: 
+            db.networks.insert_one({'network_pickle': pickle.dumps(clf),
+                                    'network_id': network_id})
+    return False
 
 def get_rutsubo_db():
     client = MongoClient(os.environ['OPENSHIFT_MONGODB_DB_HOST'], int(os.environ['OPENSHIFT_MONGODB_DB_PORT']))
