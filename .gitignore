@@ -3,3 +3,4 @@ lib64/
 local/
 bin/
 include/
+pip-selfcheck.json

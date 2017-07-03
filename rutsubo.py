@@ -26,7 +26,7 @@ def make_decision():
         app.logger.error(inputs)
 
         output = network.predict(inputs)
-        network.predict_proba(choices)
+        #network.predict_proba(choices)
         app.logger.error(str(output))
         return str(output)
     except Exception as e:
@@ -40,7 +40,7 @@ def create_network():
     try:
         network_id = request.form['network_id']
         network = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(347, 347), random_state=1)
-        store_network(network_id, network)
+        store_network(network_id, network, False)
     except Exception as e:
         app.logger.error(traceback.print_exc())
     return "success"
@@ -67,7 +67,7 @@ def train_network():
         outputs = [d['output'] for d in decisions]
         network.fit(inputs, outputs)
     
-        store_network(network_id, network)
+        store_network(network_id, network, True)
     except Exception as e:
         app.logger.error(traceback.print_exc())
     return "success"
@@ -75,18 +75,19 @@ def train_network():
 
 # Returns an MLPClassifier
 def load_network(network_id):
-    with open(get_network_path(network_id)) as model_file:
+    with open(get_network_path(network_id), 'r') as model_file:
         return pickle.load(model_file)
 
-def store_network(network_id, network):
+def store_network(network_id, network, overwrite=False):
     if os.path.exists(get_network_path(network_id)):
-        app.logger.warn('Path ' + get_network_path(network_id) + ' already exists')
-        return
+        app.logger.info('Path ' + get_network_path(network_id) + ' already exists')
+        if not overwrite:
+            return
     with open(get_network_path(network_id), 'wb') as model_file:
         pickle.dump(network, model_file)
 
 def get_network_path(network_id):
-    return "models/" + network_id + ".model"
+    return "Rutsubo/models/" + network_id + ".model"
 
 
 if __name__ == '__main__':
