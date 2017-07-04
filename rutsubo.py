@@ -20,14 +20,13 @@ def hello_world():
 def make_decision():
     try:
         network_id = request.args['network_id']
-        inputs = json.loads(request.args['input'])
+        inputs = [json.loads(request.args['input'])] # extra brackets because inputs must be 2d
         choices = json.loads(request.args['choices'])
         network = load_network(network_id)
-        app.logger.error(inputs)
 
         output = network.predict(inputs)
-        #network.predict_proba(choices)
-        app.logger.error(str(output))
+        app.logger.error(str(network.predict_proba(inputs)))
+        app.logger.error(str(network.classes_))
         return str(output)
     except Exception as e:
         app.logger.error(traceback.print_exc())
@@ -39,7 +38,7 @@ def make_decision():
 def create_network():
     try:
         network_id = request.form['network_id']
-        network = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(347, 347), random_state=1)
+        network = MLPClassifier(alpha=1e-5, hidden_layer_sizes=(347, 347), random_state=1)
         store_network(network_id, network, False)
     except Exception as e:
         app.logger.error(traceback.print_exc())
@@ -65,7 +64,16 @@ def train_network():
         decisions = json.loads(raw_decisions)
         inputs = [d['input'] for d in decisions]
         outputs = [d['output'] for d in decisions]
-        network.fit(inputs, outputs)
+
+        classes = []
+        for x in range(0, 31):
+            classes.append(x) 
+        for x in range(0, 6):
+            for y in range(1, 31):
+                classes.append(x * 100 + y)
+        app.logger.error(classes)
+
+        network.partial_fit(inputs, outputs, classes)
     
         store_network(network_id, network, True)
     except Exception as e:
