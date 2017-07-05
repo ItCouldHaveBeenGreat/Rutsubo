@@ -26,7 +26,6 @@ def make_decision():
 
         output = network.predict(inputs)
         app.logger.error(str(network.predict_proba(inputs)))
-        app.logger.error(str(network.classes_))
         return str(output)
     except Exception as e:
         app.logger.error(traceback.print_exc())
@@ -71,7 +70,6 @@ def train_network():
         for x in range(0, 6):
             for y in range(1, 31):
                 classes.append(x * 100 + y)
-        app.logger.error(classes)
 
         network.partial_fit(inputs, outputs, classes)
     
