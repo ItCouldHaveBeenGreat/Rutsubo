@@ -1,3 +1,4 @@
+import time
 from flask import Flask
 from flask import request
 from sklearn.neural_network import MLPClassifier
@@ -79,10 +80,23 @@ def train_network():
     return "success"
 
 
+# Caches models between use
+# network_id : { network, ttl }
+model_cache = {}
+TTL = 60 * 1000;
+
 # Returns an MLPClassifier
 def load_network(network_id):
+    if network_id in model_cache:
+        cache_line = model_cache[network_id]
+        if cache_line['ttl'] > time.time():
+            return cache_line['network']
+
     with open(get_network_path(network_id), 'r') as model_file:
-        return pickle.load(model_file)
+        network = pickle.load(model_file)
+        model_cache[network_id] = {"network": network, "ttl": time.time() + TTL}
+        app.logger.info("Refreshed cache for " + network_id)
+        return network;
 
 def store_network(network_id, network, overwrite=False):
     if os.path.exists(get_network_path(network_id)):
