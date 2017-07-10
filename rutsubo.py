@@ -1,3 +1,4 @@
+import boto3
 import time
 from flask import Flask
 from flask import request
@@ -27,6 +28,8 @@ def make_decision():
 
         output = network.predict(inputs)
         app.logger.error(str(network.predict_proba(inputs)))
+        choice_probabilities = choices.map(lambda choice: network.classes_.index(choice))
+        app.logger.error(str(choice_probabilities))
         return str(output)
     except Exception as e:
         app.logger.error(traceback.print_exc())
@@ -38,7 +41,20 @@ def make_decision():
 def create_network():
     try:
         network_id = request.form['network_id']
+        #output_classes = json.loads(request.form['output_classes'])
+        #layer_sizes = json.loads(request.form['layer_sizes'])
+        # execute a dummy partial_train to inform the new network of its output classes
         network = MLPClassifier(alpha=1e-5, hidden_layer_sizes=(347, 347), random_state=1)
+
+        classes = []
+        for x in range(0, 31):
+            classes.append(x)
+        for x in range(0, 6):
+            for y in range(1, 31):
+                classes.append(x * 100 + y)
+
+        network.partial_fit([], [], classes)
+
         store_network(network_id, network, False)
     except Exception as e:
         app.logger.error(traceback.print_exc())
@@ -65,14 +81,7 @@ def train_network():
         inputs = [d['input'] for d in decisions]
         outputs = [d['output'] for d in decisions]
 
-        classes = []
-        for x in range(0, 31):
-            classes.append(x) 
-        for x in range(0, 6):
-            for y in range(1, 31):
-                classes.append(x * 100 + y)
-
-        network.partial_fit(inputs, outputs, classes)
+        network.partial_fit(inputs, outputs)
     
         store_network(network_id, network, True)
     except Exception as e:
