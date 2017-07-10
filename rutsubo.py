@@ -32,8 +32,13 @@ def make_decision():
         # make_decision only makes one decision at a time
         probabilities = network.predict_proba(inputs)[0]
         choice_probabilities = map(lambda choice: round(probabilities[network.classes_.tolist().index(choice)], 7), choices)
-        max_index = choice_probabilities.index(max(choice_probabilities))
-        # TODO: Return just the naked integer
+        max_index = choice_probabilities.index(min(choice_probabilities))
+        # pd.DataFrame(clf.predict_proba(test), columns=clf.classes_)
+        # TODO: Return just the naked integeri
+        app.logger.error("Choices: " + str(choices))
+        app.logger.error("Choice: " + str(choices[max_index]))
+        app.logger.error("Probabilities: " + str(choice_probabilities))
+        app.logger.error("Probability: " + str(choice_probabilities[max_index]))
         return str([choices[max_index]])    
  
         #return str(output)
