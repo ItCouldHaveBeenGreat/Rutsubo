@@ -4,6 +4,7 @@ from flask import Flask
 from flask import request
 from sklearn.neural_network import MLPClassifier
 import traceback
+import numpy as np
 
 import os
 import pickle
@@ -26,11 +27,16 @@ def make_decision():
         choices = json.loads(request.args['choices'])
         network = load_network(network_id)
 
-        output = network.predict(inputs)
-        app.logger.error(str(network.predict_proba(inputs)))
-        choice_probabilities = choices.map(lambda choice: network.classes_.index(choice))
-        app.logger.error(str(choice_probabilities))
-        return str(output)
+        #output = network.predict(inputs)
+        
+        # make_decision only makes one decision at a time
+        probabilities = network.predict_proba(inputs)[0]
+        choice_probabilities = map(lambda choice: round(probabilities[network.classes_.tolist().index(choice)], 7), choices)
+        max_index = choice_probabilities.index(max(choice_probabilities))
+        # TODO: Return just the naked integer
+        return str([choices[max_index]])    
+ 
+        #return str(output)
     except Exception as e:
         app.logger.error(traceback.print_exc())
         return str("[-1]")
@@ -53,7 +59,7 @@ def create_network():
             for y in range(1, 31):
                 classes.append(x * 100 + y)
 
-        network.partial_fit([], [], classes)
+        network.partial_fit([np.zeros(347)], [np.zeros(1)], classes)
 
         store_network(network_id, network, False)
     except Exception as e:
