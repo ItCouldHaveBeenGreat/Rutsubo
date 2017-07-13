@@ -52,19 +52,15 @@ def make_decision():
 def create_network():
     try:
         network_id = request.form['network_id']
-        #output_classes = json.loads(request.form['output_classes'])
-        #layer_sizes = json.loads(request.form['layer_sizes'])
+        output_classes = json.loads(request.form['output_classes'])
+        layer_sizes = json.loads(request.form['layer_sizes'])
+        input_size = json.loads(request.form['input_size'])
+        output_size = json.loads(request.form['output_size'])
+
+        network = MLPClassifier(alpha=1e-5, hidden_layer_sizes=layer_sizes, random_state=1)
+
         # execute a dummy partial_train to inform the new network of its output classes
-        network = MLPClassifier(alpha=1e-5, hidden_layer_sizes=(347, 347), random_state=1)
-
-        classes = []
-        for x in range(0, 31):
-            classes.append(x)
-        for x in range(0, 6):
-            for y in range(1, 31):
-                classes.append(x * 100 + y)
-
-        network.partial_fit([np.zeros(347)], [np.zeros(1)], classes)
+        network.partial_fit([np.zeros(input_size)], [np.zeros(output_size)], output_classes)
 
         store_network(network_id, network, False)
     except Exception as e:
